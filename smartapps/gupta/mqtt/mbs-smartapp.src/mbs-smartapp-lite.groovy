@@ -1,3 +1,6 @@
+// HEAVILY EDITED
+
+
 /**
  *  An MQTT bridge to SmartThings [MBS-SmartApp-Lite] - SmartThings SmartApp (Lite Version)
  *
@@ -29,42 +32,6 @@ import groovy.transform.Field
 // Every device in mbs-server device config file should have one of these  defined or else
 // They will not interact with SmartThings
 @Field CAPABILITY_MAP = [
-	// My custom device type
-    "tasmotaSwitches": [
-		// filter name used on input screen
-        name: "Tasmota Switch",
-		// only one capability per device type to filter devices on input screen
-        capability: "capability.switch",
-        attributes: [
-			// any number of actual attributes used by devices filtered by capability above.
-			// if attribute for device does not exist, command/update structure for that attribute for that device 
-			// will not work.
-			"switch",
-			"update"
-        ],
-		// When an event is received from the server, control will be passed to device if an action is defined here
-		// If action is just single string only, that single action method will be invoked  for all events received 
-		// from the server for all attributes
-		// If action is defined as a Map like here, specific action method will be called for events received from server 
-		// for the specified attribute. If an attribute is not mapped to an action command in this map no action will be 
-		// taken on event received from server.
-        action: [
-			switch: "actionOnOff",
-			// in my custom handlers I am using 'update' as a catch-all attribute, and actionProcessMQTT as a catch-all action
-			// command. All logic about how these specific commands are generated from SmartThings or events are handled from
-			// server are handle by the Device Handler 
-			update: "actionProcessMQTT"
-		]
-    ],
-    "tasmotaSensor": [
-        name: "Tasmota Contact Sensor",
-        capability: "capability.contactSensor",
-        attributes: [
-			"contact",
-			"update"
-        ],
-        action: "actionProcessMQTT"
-    ],
     "contactSensors": [
         name: "Contact Sensor",
         capability: "capability.contactSensor",
@@ -72,6 +39,14 @@ import groovy.transform.Field
             "contact"
         ],
         action: "actionOpenClosed"
+    ],
+    "motionSensors": [
+        name: "Motion Sensor",
+        capability: "capability.motionSensor",
+        attributes: [
+            "motion"
+        ],
+        action: "actionActiveInactive"
     ],
 	// These could be standardized Smartthings virtual switches or any other device that has MQTT functionality implemented
     "switches": [
@@ -82,6 +57,14 @@ import groovy.transform.Field
         ],
         action: "actionOnOff"
     ],
+    "levels": [
+        name: "Switch Level",
+        capability: "capability.switchLevel",
+        attributes: [
+            "level"
+        ],
+        action: "actionLevel"
+    ],
     "presenceSensors": [
         name: "Presence Sensor",
         capability: "capability.presenceSensor",
@@ -90,28 +73,6 @@ import groovy.transform.Field
         ],
         action: "actionPresence",
 		duplicate: "allow"
-    ],
-	// My custom MQTT device - non-tasmota, should not apply to any use case but given as an example here
-    "customPowerMeters": [
-        name: "Custom Power Meter",
-        capability: "capability.powerMeter",
-        attributes: [
-            "demand",
-			"mqttmsg"
-        ],
-        action: "actionProcessMQTT"
-    ],
-	// My custom MQTT device - non-tasmota, should not apply to any use case but given as an example here
-    "garageDoorOpener": [
-        name: "Garage Door Opener",
-        capability: "capability.garageDoorControl",
-        attributes: [
-            "switch",
-			"contact1",
-			"contact2",
-			"update",
-        ],
-        action: "actionProcessMQTT"
     ],
     "thermostat": [
         name: "Thermostat",
@@ -127,6 +88,13 @@ import groovy.transform.Field
             "thermostatOperatingState"
         ],
         action: "actionThermostat"
+    ],
+    "illuminanceMeasurement": [
+        name: "Illuminance Measurement",
+        capability: "capability.illuminanceMeasurement",
+        attributes: [
+            "illuminance"
+        ]
     ],
 ]
 
@@ -296,7 +264,7 @@ def bridgeHandler(evt) {
 
 // Receive an event from a device
 def inputHandler(evt) {
-	log.debug "Received event ${evt.value} on attribute ${evt.name} for device  ${evt.displayName} for BRIDGE "
+	/*log.debug "Received event ${evt.value} on attribute ${evt.name} for device  ${evt.displayName} for BRIDGE "
 	// This is legacy ignoring duplicate event
     if (
         state.ignoreEvent
@@ -310,7 +278,7 @@ def inputHandler(evt) {
 		// Here we will ignore event from device if the last payload for the same event is the same as this one.
         log.debug "Duplicate of last event from device '${evt.displayName}'; ignoring event '${evt.value}' on attribute '${evt.name}' for device '${evt.displayName}'"		
 		return;
-	} else {
+	} else {*/
         def json = new JsonOutput().toJson([
             path: "/push",
             body: [
@@ -322,15 +290,16 @@ def inputHandler(evt) {
 
         log.debug "Forwarding device event to bridge: ${json}"
         bridge.deviceNotification(json)
-    }
+    //}
 }
 
 def eventCheck(device, attribute, value){
-	// If last event was same return false, else store event and return true
-	if ((state?.events[device][attribute] == null) ||  (state?.events[device][attribute].toLowerCase()  != value.toLowerCase())){
+	return true;
+    // If last event was same return false, else store event and return true
+	/*if ((state?.events[device][attribute] == null) ||  (state?.events[device][attribute].toLowerCase()  != value.toLowerCase())){
 		state.events[device][attribute] = value;
 		return true;
-	}else return false;
+	}else return false;*/
 }
 
 // +---------------------------------+
@@ -356,6 +325,14 @@ def actionOpenClosed(device, attribute, value) {
     }
 }
 
+def actionActiveInactive(device, attribute, value) {
+    if (value == "active") {
+        device.active()
+    } else if (value == "inactive") {
+        device.inactive()
+    }
+}
+
 def actionOnOff(device, attribute, value) {
     if (value == "off") {
         device.off()
@@ -368,6 +345,10 @@ def actionOnOff(device, attribute, value) {
 			device.on();
 		}
 	}
+}
+
+def actionLevel(device, attribute, value) {
+    device.setLevel(value as int)
 }
 
 def actionPresence(device, attribute, value) {
