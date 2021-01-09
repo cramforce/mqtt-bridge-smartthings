@@ -1,5 +1,4 @@
 FROM node:alpine
-MAINTAINER Sandeep Gupta <tech.gfamily@gmail.com>
 
 # Create our application direcory
 RUN mkdir -p /usr/src/app
